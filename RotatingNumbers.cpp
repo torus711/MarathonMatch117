@@ -75,6 +75,22 @@ template < typename T > inline bool chmax( T &a, const T &b ){ if ( a < b ) { a 
 
 #define DUMP( x ) cerr << #x << " = " << ( x ) << endl
 
+struct Global
+{
+	const int N = -1;
+	const int P = -1;
+	const VVI initial_board;
+
+	Global()
+	{
+		cin >> const_cast< int& >( N );
+		cin >> const_cast< int& >( P );
+		cin >> const_cast< VVI& >( initial_board );
+		return;
+	}
+};
+Global global;
+
 int main()
 {
 	cin.tie( 0 );
