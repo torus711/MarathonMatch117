@@ -75,6 +75,9 @@ template < typename T > inline bool chmax( T &a, const T &b ){ if ( a < b ) { a 
 
 #define DUMP( x ) cerr << #x << " = " << ( x ) << endl
 
+#include <memory>
+#include <random>
+
 struct Global
 {
 	const int N = -1;
@@ -85,11 +88,194 @@ struct Global
 	{
 		cin >> const_cast< int& >( N );
 		cin >> const_cast< int& >( P );
-		cin >> const_cast< VVI& >( initial_board );
+
+		VVI board( N, VI ( N ) );
+		cin >> board;
+		for_each( ALL( board ), []( VI &row ){ transform( ALL( row ), begin( row ), bind( minus< int >(), _1, 1 ) ); } );
+		const_cast< VVI& >( initial_board ) = board;
 		return;
 	}
 };
 Global global;
+
+VVI rotate_board( VVI board, const int r, const int c, const int s, const char dir )
+{
+	assert( 0 <= r && r + s <= global.N && 0 <= c && c + s <= global.N );
+
+	REP( dir == 'R' ? 1 : 3 )
+	{
+		VVI stamp( s, VI( s ) );
+		REP( i, s )
+		{
+			REP( j, s )
+			{
+				stamp[j][ s - 1 - i ] = board[ r + i ][ c + j ];
+			}
+		}
+		REP( i, s )
+		{
+			REP( j, s )
+			{
+				board[ r + i ][ c + j ] = stamp[i][j];
+			}
+		}
+	}
+
+	return move( board );
+}
+
+int get_penalty( const VVI &board )
+{
+	int res = 0;
+	REP( i, global.N )
+	{
+		REP( j, global.N )
+		{
+			const int a = board[i][j];
+			const int ti = a / global.N;
+			const int tj = a % global.N;
+			res += abs( i - ti ) + abs( j - tj );
+		}
+	}
+	return res;
+}
+
+class Board
+{
+private:
+	VVI board_;
+	VS history_;
+
+public:
+	Board() : board_( global.initial_board )
+	{
+		return;
+	}
+
+	void rotate( const int r, const int c, const int s, const char dir )
+	{
+		board_ = rotate_board( board_, r, c, s, dir );
+		history_.EB( toString( r ) + " " + toString( c ) + " " + toString( s ) + " " + dir );
+		return;
+	}
+
+	PII position_of( const int t )
+	{
+		REP( i, global.N )
+		{
+			REP( j, global.N )
+			{
+				if ( board_[i][j] == t )
+				{
+					return { i, j };
+				}
+			}
+		}
+		assert( false );
+		return { -1, -1 };
+	}
+
+	void fix( const int t )
+	{
+		const int ty = t / global.N;
+		const int tx = t % global.N;
+
+// 		DUMP( t );
+// 		DUMP( ty );
+// 		DUMP( tx );
+
+		int y, x;
+		tie( y, x ) = position_of( t );
+// 		DUMP( y );
+// 		DUMP( x );
+
+		if ( tie( y, x ) == tie( ty, tx ) )
+		{
+			return;
+		}
+
+		if ( tx == global.N - 1 )
+		{
+			rotate( ty, tx - 1, 2, 'R' );
+		}
+
+		if ( ty == y )
+		{
+			if ( x + 1 < global.N )
+			{
+				rotate( y, x, 2, 'L' );
+			}
+			else
+			{
+				rotate( y, x - 1, 2, 'R' );
+			}
+		}
+
+		tie( y, x ) = position_of( t );
+
+		// move target into a row of right below
+// 		cerr << "Step 1" << endl;
+		while ( ty + 1 < y )
+		{
+			const int s = y - ty;
+			assert( 2 <= s );
+			if ( x + s <= global.N )
+			{
+				rotate( ty + 1, x, s, 'R' );
+			}
+			else
+			{
+// 				cerr << "!( x < s )" << endl;
+// 				DUMP( y );
+// 				DUMP( x );
+// 				DUMP( s );
+				const int ss = min( s, x + 1 );
+				rotate( y - ss + 1, x - ss + 1, ss, 'L' );
+			}
+			tie( y, x ) = position_of( t );
+		}
+
+		// move into right below cell
+// 		cerr << "Step 2" << endl;
+		while ( tx != x )
+		{
+			const int s = min( abs( tx - x ) + 1, global.N - y );
+// 			DUMP( y );
+// 			DUMP( position_of( t ).fst );
+// 			DUMP( x );
+// 			DUMP( s );
+			assert( 2 <= s );
+			if ( x < tx )
+			{
+				rotate( y, x, s, 'R' );
+				x += s - 1;
+			}
+			else
+			{
+				rotate( y, x - s + 1, s, 'L' );
+				x -= s - 1;
+			}
+		}
+
+		// move into target cell
+// 		cerr << "Step 3" << endl;
+		if ( x == global.N - 1 )
+		{
+			rotate( ty, tx - 1, 2, 'L' );
+		}
+		else
+		{
+			rotate( ty, tx, 2, 'R' );
+		}
+
+		return;
+	}
+
+	VS history() const
+	{
+		return history_;
+	}
+};
 
 int main()
 {
@@ -97,7 +283,28 @@ int main()
 	ios::sync_with_stdio( false );
 	cout << setprecision( 12 ) << fixed;
 
-	
+
+	Board board;
+	REP( i, global.N * global.N - 2 * global.N )
+	{
+// 		DUMP( i );
+		board.fix( i );
+	}
+
+	if ( global.P == 1 )
+	{
+		cout << 0 << endl;
+		return 0;
+	}
+
+	auto res = board.history();
+// 	cerr << "ENDED" << endl;
+// 	DUMP( SZ( res ) );
+	res.resize( min( SZ( res ), 100000 ) );
+	cout << SZ( res ) << endl;
+// 	DUMP( res[0] );
+	copy( ALL( res ), ostream_iterator< string >( cout, "\n" ) );
+	cout << flush;
 
 	return 0;
 }
