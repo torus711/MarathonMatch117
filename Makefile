@@ -1,5 +1,5 @@
 CXX	:= g++
-CXXFLAGS := -std=c++1y -Wall -Wextra
+CXXFLAGS := -std=c++11 -Wall -Wextra
 
 SRCS := RotatingNumbers.cpp
 OBJECTS := $(SRCS:%.cpp=%.o)
