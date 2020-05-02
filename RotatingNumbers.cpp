@@ -78,6 +78,9 @@ template < typename T > inline bool chmax( T &a, const T &b ){ if ( a < b ) { a 
 #include <memory>
 #include <random>
 
+constexpr int dy[] = { 0, 1, 0, -1 };
+constexpr int dx[] = { 1, 0, -1, 0 };
+
 struct Global
 {
 	const int N = -1;
@@ -97,32 +100,6 @@ struct Global
 	}
 };
 Global global;
-
-VVI rotate_board( VVI board, const int r, const int c, const int s, const char dir )
-{
-	assert( 0 <= r && r + s <= global.N && 0 <= c && c + s <= global.N );
-
-	REP( dir == 'R' ? 1 : 3 )
-	{
-		VVI stamp( s, VI( s ) );
-		REP( i, s )
-		{
-			REP( j, s )
-			{
-				stamp[j][ s - 1 - i ] = board[ r + i ][ c + j ];
-			}
-		}
-		REP( i, s )
-		{
-			REP( j, s )
-			{
-				board[ r + i ][ c + j ] = stamp[i][j];
-			}
-		}
-	}
-
-	return move( board );
-}
 
 int get_penalty( const VVI &board )
 {
@@ -182,7 +159,7 @@ public:
 		};
 
 		score_differential( -1 );
-		board_ = rotate_board( board_, r, c, s, dir );
+		rotate_board( r, c, s, dir );
 		score_differential( 1 );
 
 		if ( rollback )
@@ -193,6 +170,37 @@ public:
 		else
 		{
 			history_.EB( toString( r ) + " " + toString( c ) + " " + toString( s ) + " " + dir );
+		}
+
+		return;
+	}
+
+	void rotate_board( const int r, const int c, const int s, const char dir )
+	{
+		assert( 0 <= r && r + s <= global.N && 0 <= c && c + s <= global.N );
+
+		VVI stamp( s, VI( s ) );
+		REP( i, s )
+		{
+			REP( j, s )
+			{
+				if ( dir == 'R' )
+				{
+					stamp[j][ s - 1 - i ] = board_[ r + i ][ c + j ];
+				}
+				else
+				{
+					stamp[ s - 1 - j ][i] = board_[ r + i ][ c + j ];
+				}
+			}
+		}
+
+		REP( i, s )
+		{
+			REP( j, s )
+			{
+				board_[ r + i ][ c + j ] = stamp[i][j];
+			}
 		}
 
 		return;
@@ -219,6 +227,237 @@ public:
 		return { -1, -1 };
 	}
 
+	void yose()
+	{
+// 		REP( i, global.N * global.N - 2 * global.N )
+// 		{
+// 			fix( i );
+// 		}
+// 		REP( i, global.N - 2 )
+// 		{
+// 			fix_2row( ( global.N - 2 ) * global.N + 1 + i );
+// 		}
+
+		VVI filled( global.N, VI( global.N ) );
+
+		int ty = 0, tx = 0;
+		for ( int d = 0, done = 0; done + 4 < global.N * global.N; ++done )
+		{
+// 			DUMP( done );
+			const int t = ty * global.N + tx;
+// 			DUMP( t );
+			int y, x;
+			tie( y, x ) = position_of( t );
+
+			const int ny = ty + dy[d];
+			const int nx = tx + dx[d];
+			const bool corner = !( 0 <= ny && ny < global.N && 0 <= nx && nx < global.N ) ||
+					filled[ ny ][ nx ];
+			if ( corner )
+			{
+				if ( abs( ty - y ) == 1 && abs( tx - x ) == 1 )
+				{
+					int r = y;
+					int c = x;
+					if ( d == 0 )
+					{
+						--c;
+					}
+					if ( d == 1 )
+					{
+						--r;
+						--c;
+					}
+					if ( d == 2 )
+					{
+						--r;
+					}
+					rotate( r, c, 2, 'R' );
+					tie( y, x ) = position_of( t );
+				}
+
+				if ( d == 0 )
+				{
+					rotate( ty, tx - 1, 2, 'R' );
+				}
+				if ( d == 1 )
+				{
+					rotate( ty - 1, tx - 1, 2, 'R' );
+				}
+				if ( d == 2 )
+				{
+					rotate( ty - 1, tx, 2, 'R' );
+				}
+				if ( d == 3 )
+				{
+					rotate( ty, tx, 2, 'R' );
+				}
+			}
+			tie( y, x ) = position_of( t );
+
+			while ( d % 2 ? y != ty : x != tx )
+			{
+// 				cerr << "START" << endl;
+				constexpr int dr[] = { 0,  0, -1, -1 };
+				constexpr int dc[] = { 0, -1, -1,  0 };
+
+				int r = y;
+				int c = x;
+// 				DUMP( y );
+// 				DUMP( x );
+				bool rev = false;
+				if ( d == 0 )
+				{
+					if ( y < global.N / 2 )
+					{
+						// do nothing
+					}
+					else
+					{
+						--r;
+						rev ^= true;
+					}
+					if ( tx < x )
+					{
+						--c;
+						rev ^= true;
+					}
+				}
+				if ( d == 1 )
+				{
+					--c;
+					if ( x < global.N / 2 )
+					{
+						++c;
+						rev ^= true;
+					}
+					else
+					{
+						// do nothing
+					}
+					if ( ty < y )
+					{
+						--r;
+						rev ^= true;
+					}
+				}
+				if ( d == 2 )
+				{
+					--r;
+					--c;
+					if ( y < global.N / 2 )
+					{
+						++r;
+						rev ^= true;
+					}
+					else
+					{
+						// do nothing
+					}
+					if ( x < tx )
+					{
+						++c;
+						rev ^= true;
+					}
+				}
+				if ( d == 3 )
+				{
+					--r;
+					if ( x < global.N / 2 )
+					{
+						// do nothing
+					}
+					else
+					{
+						--c;
+						rev = true;
+					}
+					if ( y < ty )
+					{
+						++r;
+						rev ^= true;
+					}
+				}
+
+				rotate( r, c, 2, "LR"[ 1 - rev ] );
+				tie( y, x ) = position_of( t );
+			}
+// 				DUMP( t );
+			while ( d % 2 ? x != tx : y != ty )
+			{
+				constexpr int dr[] = { -1, 0,  0, -1 };
+				constexpr int dc[] = {  0, 0, -1, -1 };
+
+// 				cerr << "START" << endl;
+				int r = y;
+				int c = x;
+				bool rev = false;
+				if ( d == 0 )
+				{
+					--r;
+					if ( corner )
+					{
+						--c;
+						rev ^= true;
+					}
+				}
+				if ( d == 1 )
+				{
+					if ( corner )
+					{
+						--r;
+						rev -= true;
+					}
+				}
+				if ( d == 2 )
+				{
+					--c;
+					if ( corner )
+					{
+						++c;	
+						rev ^= true;
+					}
+				}
+				if ( d == 3 )
+				{
+					--r;
+					--c;
+					if ( corner )
+					{
+						++r;
+						rev ^= true;
+					}
+				}
+
+
+// 				cerr << "START" << endl;
+// 				DUMP( r );
+// 				DUMP( c );
+// 				DUMP( t );
+// 				DUMP( y );
+// 				DUMP( x );
+// 				DUMP( ty );
+// 				DUMP( tx );
+// 				DUMP( r );
+// 				DUMP( c );
+				rotate( r, c,  2, "LR"[ 1 - rev ]);
+// 				cerr << "END" << endl;
+				tie( y, x ) = position_of( t );
+// 				cerr << "END" << endl;
+			}
+
+			filled[ ty ][ tx ] = true;
+			if ( corner )
+			{
+				++d %= 4;
+			}
+			ty += dy[d];
+			tx += dx[d];
+		}
+
+		return;
+	}
+
 	void fix( const int t )
 	{
 		const int ty = t / global.N;
@@ -240,6 +479,10 @@ public:
 
 		if ( tx == global.N - 1 )
 		{
+			if ( board_[ ty + 1 ][ tx - 1 ] == t )
+			{
+				rotate( ty + 1, tx - 1, 2, 'L' );
+			}
 			rotate( ty, tx - 1, 2, 'R' );
 		}
 
@@ -305,6 +548,78 @@ public:
 		return;
 	}
 
+	void fix_2row( const int t1 )
+	{
+		const int t2 = t1 + global.N;
+		const int ty = t1 / global.N;
+		const int tx = t1 % global.N;
+
+		if ( position_of( t1 ).snd == position_of( t2 ).snd &&
+				position_of( t1 ).snd == tx )
+		{
+			return;
+		}
+
+		while ( position_of( t1 ).snd == tx )
+		{
+			rotate( ty, tx, 2, 'L' );
+		}
+
+		{ // move t2
+			int y, x;
+			tie( y, x ) = position_of( t2 );
+
+			if ( y + 1 == global.N )
+			{
+				if ( x + 1 < global.N )
+				{
+					rotate( y - 1, x, 2, 'R' );
+				}
+				else
+				{
+					rotate( y - 1, x - 1, 2, 'L' );
+				}
+				--y;
+			}
+
+			while ( tx < x )
+			{
+				rotate( y, x - 1, 2, 'L' );
+				--x;
+			}
+		}
+		{ // move t1
+			int y, x;
+			tie( y, x ) = position_of( t1 );
+			if ( !( tx <= x ) )
+			{
+				return;
+			}
+			assert( tx <= x ); // TODO: it fired
+// 			assert( tx < x );
+
+			if ( y + 1 == global.N )
+			{
+				if ( x + 1 < global.N )
+				{
+					rotate( y - 1, x, 2, 'R' );
+				}
+				else
+				{
+					rotate( y - 1, x - 1, 2, 'L' );
+				}
+				--y;
+			}
+			while ( tx < x )
+			{
+				rotate( y, x - 1, 2, 'L' );
+				--x;
+			}
+		}
+
+		return;
+	}
+
 	VS history() const
 	{
 		return history_;
@@ -312,9 +627,107 @@ public:
 
 	bool operator<( const Board &rhs ) const
 	{
-		return score_ < rhs.score_;
+		if ( score_ != rhs.score_ )
+		{
+			return score_ < rhs.score_;
+		}
+		return board_ < rhs.board_;
 	}
 };
+
+// constexpr int MAX_MOVES = 128;
+//
+// mt19937 rng;
+//
+// VS beam_search()
+// {
+// 	constexpr double EXEC_TIME = 9.5;
+// // 	constexpr double EXEC_TIME = 1.0;
+// 	constexpr int BEAM_WIDTH = 256;
+//
+// 	const clock_t clock_start = clock();
+//
+// 	VT< set< Board > > queues( MAX_MOVES + 1 );
+// 	queues[0].EM();
+//
+// 	Board best_board;
+// 	int best_score = best_board.score();
+//
+// // 	uniform_int_distribution< int > rng_2N( 2, global.N );
+//
+// 	int turn = 0, iteration = 0;
+// 	clock_t clock_now;
+// 	while ( 1. * ( ( clock_now = clock() ) - clock_start ) / CLOCKS_PER_SEC <= EXEC_TIME )
+// 	{
+// 		const double t = 1 - 1. * ( ( clock_now - clock_start ) / CLOCKS_PER_SEC ) / EXEC_TIME;
+// 		const double c = 4 + t * max( global.N, global.N / 8 );
+// 		normal_distribution< double > rng_norm( c, sqrt( global.N ) );
+//
+// 		const int i = turn++ % MAX_MOVES;
+// 		auto &currents = queues[i];
+// 		auto &nexts = queues[ i + 1 ];
+//
+// // 		REP( 128 )
+// 		{
+// 			if ( currents.empty() )
+// 			{
+// 				continue;
+// 			}
+//
+// 			Board board = *begin( currents );
+// 			currents.erase( begin( currents ) );
+//
+// 			REP( min( 64, global.N * global.N * global.N ) )
+// // 			REP( s, 3, global.N + 1 ) REP( r, global.N - s + 1 ) REP( c, global.N - s + 1 ) REP( d, 2 )
+// 			{
+// // 				const int s = rng_2N( rng );
+// 				const int s = min( global.N, max( 2, int( rng_norm( rng ) ) ) );
+// 				uniform_int_distribution< int > rng_pos( 0, global.N - s );
+// 				const int r = rng_pos( rng );
+// 				const int c = rng_pos( rng );
+// 				const int d = rng() % 2;
+//
+// 				board.rotate( r, c, s, "LR"[d] );
+//
+// 				if ( chmin( best_score, board.score() ) )
+// 				{
+// 					best_board = board;
+// 					// 					DUMP( best_score );
+// 				}
+//
+// 				nexts.insert( board );
+//
+// 				board.rotate( r, c, s, "RL"[d], true );
+// 			}
+//
+// 			while ( BEAM_WIDTH < SZ( nexts ) )
+// 			{
+// 				nexts.erase( ++nexts.rbegin().base() );
+// 			}
+//
+// 			++iteration;
+// 		}
+// 	}
+//
+// 	DUMP( iteration );
+// 	DUMP( SZ( best_board.history() ) );
+//
+// 	best_board.yose();
+// 	best_score = best_board.score();
+//
+// // 	Board res( best_board );
+// // 	REP( 4 )
+// // 	{
+// // 		best_board.rotate( global.N / 2, global.N / 2, 2, 'R' );
+// // 		if ( chmin( best_score, best_board.score() ) )
+// // 		{
+// // 			res = best_board;
+// // 		}
+// // 	}
+//
+// 	cerr << ( 1. * ( clock() - clock_start ) / CLOCKS_PER_SEC ) << endl;
+// 	return best_board.history();
+// }
 
 // constexpr int MAX_MOVES = 100000;
 constexpr int MAX_MOVES = 256;
@@ -323,7 +736,7 @@ mt19937 rng;
 
 VS beam_search()
 {
-	constexpr double EXEC_TIME = 7.5;
+	constexpr double EXEC_TIME = 9.0;
 	constexpr int BEAM_WIDTH = 128;
 
 	const clock_t clock_start = clock();
@@ -334,7 +747,7 @@ VS beam_search()
 	Board best_board;
 	int best_score = best_board.score();
 
-	uniform_int_distribution< int > rng_2N( 2, global.N );
+	uniform_int_distribution< int > rng_2N( 2, global.N / 2 );
 
 	while ( 1. * ( clock() - clock_start ) / CLOCKS_PER_SEC <= EXEC_TIME )
 	{
@@ -377,13 +790,10 @@ VS beam_search()
 		}
 	}
 
-
-	REP( i, global.N * global.N - global.N )
-	{
-		best_board.fix( i );
-	}
+	best_board.yose();
 	return best_board.history();
 }
+
 
 int main()
 {
@@ -391,13 +801,27 @@ int main()
 	ios::sync_with_stdio( false );
 	cout << setprecision( 12 ) << fixed;
 
+// 	constexpr double EXEC_TIME = 9.5;
+//
+// 	const clock_t clock_start = clock();
+//
+// 	cerr << "TEST" << endl;
+// 	MonteCarloSearchTree mcst;
+//
+// 	while ( 1. * ( clock() - clock_start ) / CLOCKS_PER_SEC <= EXEC_TIME )
+// 	{
+// 		mcst.explore();
+// 	}
+// 	mcst.output_bestmove();
+//
+// 	DUMP( MonteCarloSearchTree::total_playout_ );
+	
 	auto res = beam_search();
-// 	cerr << "ENDED" << endl;
-// 	DUMP( SZ( res ) );
+	cerr << "ENDED" << endl;
+	DUMP( SZ( res ) );
 
 	res.resize( min( SZ( res ), 100000 ) );
 	cout << SZ( res ) << endl;
-// 	DUMP( res[0] );
 	copy( ALL( res ), ostream_iterator< string >( cout, "\n" ) );
 	cout << flush;
 
