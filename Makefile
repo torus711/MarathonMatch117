@@ -13,6 +13,10 @@ main.exe: $(OBJECTS)
 %.o: %.cpp
 	$(CXX) -c -MMD -MP $(CXXFLAGS) $<
 
+pg: $(OBJECTS)
+	make clean
+	$(CXX) -pg -o $@ $^
+
 clean:
 	rm $(OBJECTS)
 	rm $(DEPS)
